@@ -213,7 +213,7 @@ let currentOffset = 123456; // base offset seed (change to get different set)
 document.getElementById('drawBtn').addEventListener('click', () => {
   const cols = Math.max(1, Math.min(200, parseInt(document.getElementById('cols').value) || 40));
   const rows = Math.max(1, Math.min(200, parseInt(document.getElementById('rows').value) || 25));
-  const diversity = Math.max(1, Math.min(200, parseInt(document.getElementById('diversity').value) || 25));
+  const diversity = Math.max(1, Math.min(2000, parseInt(document.getElementById('diversity').value) || 25));
   drawWall({cols, rows, diversity, offset: currentOffset});
 });
 document.getElementById('regenBtn').addEventListener('click', () => {
