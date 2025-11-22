@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Snowfall Over Fireplace Room</title>
+<style>
+    body {
+        margin: 0;
+        padding: 0;
+        background: url("livingroom.jpg") no-repeat center center fixed;
+        background-size: cover;
+        overflow: hidden;
+    }
+
+    .snowflake {
+        position: absolute;
+        top: -10px;
+        width: 8px;
+        height: 8px;
+        background: white;
+        border-radius: 50%;
+        opacity: 0.8;
+        animation: fall linear infinite;
+    }
+
+    @keyframes fall {
+        to {
+            transform: translateY(100vh);
+        }
+    }
+</style>
+</head>
+<body>
+
+<script>
+// Create 1000 snowflakes
+for (let i = 0; i < 1000; i++) {
+    let flake = document.createElement("div");
+    flake.className = "snowflake";
+
+    let size = Math.random() * 6 + 2;
+    let duration = Math.random() * 5 + 5;
+    let delay = Math.random() * 5;
+
+    flake.style.left = Math.random() * window.innerWidth + "px";
+    flake.style.width = size + "px";
+    flake.style.height = size + "px";
+    flake.style.animationDuration = duration + "s";
+    flake.style.animationDelay = delay + "s";
+
+    document.body.appendChild(flake);
+}
+</script>
+
+</body>
+</html>

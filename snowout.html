@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Snow Falling Outside Window</title>
+
+<style>
+    body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+    }
+
+    /* Background living room */
+    #background {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: url("livingroom.png")
+            no-repeat center center;
+        background-size: cover;
+        z-index: 1;
+    }
+
+    /* Only this region will have snow */
+    .window-area {
+        position: absolute;
+
+        /* <<< YOU MUST ADJUST THESE VALUES >>> */
+        left: 36vw;   /* move horizontally */
+        top: 7vh;    /* move vertically */
+        width: 40vw;  /* window width */
+        height: 73vh; /* window height */
+
+        overflow: hidden;
+        z-index: 2;
+        pointer-events: none;
+    }
+
+    .snowflake {
+        position: absolute;
+        top: -10px;
+        background: white;
+        border-radius: 50%;
+        opacity: 0.8;
+        animation: fall linear infinite;
+    }
+
+    @keyframes fall {
+        to {
+            transform: translateY(100vh);
+        }
+    }
+</style>
+</head>
+<body>
+
+<div id="background"></div>
+
+<!-- Snow only inside here -->
+<div class="window-area" id="windowArea"></div>
+
+<script>
+const windowArea = document.getElementById("windowArea");
+
+// Generate 1000 snowflakes
+for (let i = 0; i < 1000; i++) {
+    let flake = document.createElement("div");
+    flake.className = "snowflake";
+
+    // Random size
+    let size = Math.random() * 5 + 2;
+    flake.style.width = size + "px";
+    flake.style.height = size + "px";
+
+    // Random horizontal start inside window only
+    flake.style.left = Math.random() * windowArea.offsetWidth + "px";
+
+    // Animation timing
+    flake.style.animationDuration = (Math.random() * 5 + 5) + "s";
+    flake.style.animationDelay = (Math.random() * 5) + "s";
+
+    windowArea.appendChild(flake);
+}
+</script>
+
+</body>
+</html>

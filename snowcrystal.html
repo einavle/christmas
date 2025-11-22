@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; background: #0b1220; color: #dce9ff; display:flex; flex-direction:column; height:100vh; }
+    header { padding:10px 14px; display:flex; gap:10px; align-items:center; background: linear-gradient(90deg, rgba(255,255,255,0.03), transparent); }
+    h1 { font-size:16px; margin:0; font-weight:600; }
+    #controls { margin-left:auto; display:flex; gap:8px; align-items:center; }
+    button { background: rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.06); color:inherit; padding:6px 10px; border-radius:8px; cursor:pointer; }
+    button:hover { background: rgba(255,255,255,0.12); }
+    #canvasWrap { flex:1; display:flex; align-items:center; justify-content:center; overflow:auto; padding:12px; }
+    canvas { background: linear-gradient(180deg,#051025 0%, #09172a 100%); box-shadow: 0 8px 30px rgba(0,0,0,0.6); border-radius:6px; }
+    footer { font-size:12px; color:#98a8c9; padding:8px 12px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div id="controls">
+      <label style="font-size:13px; color:#bcd">cols:
+        <input id="cols" type="number" min="1" max="200" value="40" style="width:60px; margin-left:6px;">
+      </label>
+      <label style="font-size:13px; color:#bcd">rows:
+        <input id="rows" type="number" min="1" max="200" value="25" style="width:60px; margin-left:6px;">
+      </label>
+      <label style="font-size:13px; color:#bcd">diversity:
+        <input id="diversity" type="number" min="1" max="2000" value="25" style="width:60px; margin-left:6px;">
+      </label>
+      <button id="drawBtn">Draw</button>
+      <button id="regenBtn">Regenerate (new offset)</button>
+      <button id="downloadBtn">Download PNG</button>
+    </div>
+  </header>
+
+  <div id="canvasWrap">
+    <canvas id="c"></canvas>
+  </div>
+
+
+<script>
+/* ---------- deterministic PRNG (mulberry32) ---------- */
+function mulberry32(seed) {
+  return function() {
+    let t = seed += 0x6D2B79F5;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/* ---------- helpers ---------- */
+function randRange(rng, a, b) { return a + rng() * (b - a); }
+function pick(rng, arr) { return arr[Math.floor(rng() * arr.length)]; }
+
+/* ---------- draw one snowflake into ctx centered at (cx,cy) ---------- */
+function drawSnowflake(ctx, seed, cx, cy, size, palette) {
+  const rng = mulberry32(seed);
+  ctx.save();
+  ctx.translate(cx, cy);
+
+  // deterministic parameters
+  const armCount = Math.floor(randRange(rng, 4, 13)); // 4..12 arms
+  const symmetry = armCount;
+  const mainLength = size * randRange(rng, 0.65, 1.0);
+  const baseThickness = Math.max(0.6, Math.round(size * randRange(rng, 0.03, 0.08)));
+  const branchCount = Math.floor(randRange(rng, 2, 7));
+  const skew = randRange(rng, -0.25, 0.25);
+  const jitter = randRange(rng, 0.01, 0.09);
+
+  // color (icy)
+  const hue = Math.floor(randRange(rng, 185, 215));
+  const sat = Math.floor(randRange(rng, 65, 95));
+  const light = Math.floor(randRange(rng, 75, 95));
+  const strokeStyle = `hsl(${hue} ${sat}% ${light}%)`;
+  ctx.lineWidth = baseThickness;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = strokeStyle;
+  ctx.fillStyle = strokeStyle;
+  ctx.globalAlpha = randRange(rng, 0.75, 1.0);
+
+  // Draw center small polygon or hex
+  const coreRadius = size * randRange(rng, 0.04, 0.12);
+  ctx.beginPath();
+  const coreSides = Math.floor(randRange(rng, 3, 8));
+  for (let i=0;i<coreSides;i++){
+    const a = i / coreSides * Math.PI * 2;
+    const r = coreRadius * (1 - jitter*2 + rng()*jitter*4);
+    const x = Math.cos(a) * r;
+    const y = Math.sin(a) * r;
+    if (i === 0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+  }
+  ctx.closePath();
+  ctx.fill();
+
+  // Function to draw one arm (from center to outer)
+  function drawArm(rngArm) {
+    ctx.save();
+    // main stem
+    ctx.beginPath();
+    ctx.moveTo(0,0);
+    const segs = 4;
+    for (let s=1; s<=segs; s++){
+      const t = s / segs;
+      const len = mainLength * t * (1 + (rngArm() - 0.5) * 0.15);
+      const x = Math.sin(skew * Math.PI) * len * (0.06 * (s-1));
+      const y = -len;
+      ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // branches
+    for (let b=0;b<branchCount;b++){
+      const t = (b+1)/(branchCount+1);
+      const branchPos = -mainLength * t * (1 + (rngArm()-0.5) * 0.08);
+      const branchLen = mainLength * randRange(rngArm, 0.08, 0.28);
+      const angle = randRange(rngArm, 0.25, 0.65);
+      const smallBranchChance = rngArm();
+      // left branch
+      ctx.beginPath();
+      ctx.moveTo(0, branchPos);
+      ctx.lineTo(-Math.cos(angle)*branchLen, branchPos - Math.sin(angle)*branchLen);
+      ctx.stroke();
+      // right branch (mirror)
+      ctx.beginPath();
+      ctx.moveTo(0, branchPos);
+      ctx.lineTo(Math.cos(angle)*branchLen, branchPos - Math.sin(angle)*branchLen);
+      ctx.stroke();
+
+      // optional sub-branches near tip
+      if (smallBranchChance > 0.6) {
+        const tipx = Math.cos(angle)*branchLen;
+        const tipy = branchPos - Math.sin(angle)*branchLen;
+        ctx.beginPath();
+        ctx.moveTo(tipx, tipy);
+        ctx.lineTo(tipx + Math.cos(angle*0.6)*branchLen*0.35, tipy - Math.sin(angle*0.6)*branchLen*0.35);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(-tipx, tipy);
+        ctx.lineTo(-tipx - Math.cos(angle*0.6)*branchLen*0.35, tipy - Math.sin(angle*0.6)*branchLen*0.35);
+        ctx.stroke();
+      }
+    }
+
+    // decorative dots & tips
+    const tipDot = Math.max(1, Math.round(baseThickness * 1.2));
+    ctx.beginPath();
+    ctx.arc(0, -mainLength, tipDot, 0, Math.PI*2);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  // draw arms rotated evenly
+  for (let a=0; a<symmetry; a++){
+    ctx.save();
+    ctx.rotate((a / symmetry) * Math.PI * 2);
+    // use a variation of rng for each arm but deterministic
+    const armSeed = Math.floor(seed * 101 + a * 7919) >>> 0;
+    const rngArm = mulberry32(armSeed);
+    drawArm(rngArm);
+    ctx.restore();
+  }
+
+  ctx.restore();
+}
+
+/* ---------- canvas layout & draw all ---------- */
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+function drawWall(opts) {
+  const cols = opts.cols;
+  const rows = opts.rows;
+  const diversity = opts.diversity;
+  const padding = Math.max(8, Math.min(24, Math.floor(Math.min(window.innerWidth, window.innerHeight) * 0.01)));
+  const cellSize = Math.floor(Math.min((window.innerWidth - padding*2) / cols, (window.innerHeight - 100 - padding*2) / rows));
+  const snowSize = Math.floor(cellSize * 0.42); // snowflake radius scale relative to cell
+
+  // set canvas size for crisp rendering (handle DPR)
+  const dpr = Math.max(1, window.devicePixelRatio || 1);
+  canvas.width = Math.floor((cols * cellSize + padding*2) * dpr);
+  canvas.height = Math.floor((rows * cellSize + padding*2) * dpr);
+  canvas.style.width = (cols * cellSize + padding*2) + 'px';
+  canvas.style.height = (rows * cellSize + padding*2) + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  
+  // background
+  ctx.clearRect(0,0,canvas.width/dpr, canvas.height/dpr);
+  // subtle vignette background done by CSS of canvas, but draw subtle stars
+  ctx.globalAlpha = 0.9;
+
+  // draw grid
+  let index = 0;
+  
+  for (let r=0; r<rows; r++){
+    for (let c=0; c<cols; c++){
+      let delta=Math.floor(Math.random() * diversity);
+      const cx = padding + c * cellSize + cellSize/2;
+      const cy = padding + r * cellSize + cellSize/2;
+      const seed = (opts.offset + delta) >>> 0; // ensure integer
+      drawSnowflake(ctx, seed + 1, cx, cy, snowSize, null);
+      index++
+      if (index >= 1000) break;
+    }
+    if (index >= 1000) break;
+  }
+}
+
+/* ---------- controls ---------- */
+let currentOffset = 123456; // base offset seed (change to get different set)
+document.getElementById('drawBtn').addEventListener('click', () => {
+  const cols = Math.max(1, Math.min(200, parseInt(document.getElementById('cols').value) || 40));
+  const rows = Math.max(1, Math.min(200, parseInt(document.getElementById('rows').value) || 25));
+  const diversity = Math.max(1, Math.min(200, parseInt(document.getElementById('diversity').value) || 25));
+  drawWall({cols, rows, diversity, offset: currentOffset});
+});
+document.getElementById('regenBtn').addEventListener('click', () => {
+  // change offset deterministically using timestamp
+  currentOffset = Math.floor(Math.abs(Math.sin(Date.now()) * 1e9)) >>> 0;
+  document.getElementById('drawBtn').click();
+});
+document.getElementById('downloadBtn').addEventListener('click', () => {
+  const link = document.createElement('a');
+  link.download = `snowwall_${Date.now()}.png`;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+});
+
+/* initial draw */
+window.addEventListener('load', () => document.getElementById('drawBtn').click());
+window.addEventListener('resize', () => {
+  // redraw on resize (keeps same offset)
+  document.getElementById('drawBtn').click();
+});
+</script>
+</body>
+</html>
