@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Image Game</title>
+  <style>
+    body {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      cursor: pointer;
+      background-color: #f0f0f0;
+      position: relative;
+    }
+
+    #message {
+      position: absolute;
+      top: 20px;
+      font-size: 48px;
+      font-weight: bold;
+      color: red;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .container {
+      display: flex;
+      justify-content: space-between;
+      width: 80%;
+      max-width: 800px;
+      transition: all 0.5s ease;
+      margin-top: 60px;
+    }
+
+    img {
+      width: 200px;
+      height: auto;
+      transition: all 0.5s ease;
+    }
+
+    #counter {
+      position: absolute;
+      bottom: 60px;
+      font-size: 24px;
+      font-weight: bold;
+      color: #333;
+    }
+
+    #controls {
+      position: absolute;
+      bottom: 20px;
+      font-size: 18px;
+    }
+
+    input[type="number"] {
+      width: 60px;
+      padding: 2px 5px;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="message">BANG</div>
+
+  <div class="container" id="container">
+    <img src="hand.png" alt="Hand" id="img1">
+    <img src="circle.png" alt="Circle" id="img2">
+  </div>
+
+  <div id="counter">בומבות: 0</div>
+
+  <div id="controls">
+    Swap Interval (ms): <input type="number" id="intervalInput" value="500" min="100" step="50">
+  </div>
+
+  <!-- Audio files -->
+  <audio id="buzzAudio" src="punch.mp3"></audio>
+  <audio id="failAudio" src="fail.mp3"></audio>
+
+  <script>
+    const container = document.getElementById('container');
+    const message = document.getElementById('message');
+    const counterDisplay = document.getElementById('counter');
+    const intervalInput = document.getElementById('intervalInput');
+    const buzzAudio = document.getElementById('buzzAudio');
+    const failAudio = document.getElementById('failAudio');
+
+    const hand = 'hand.png';
+    const circle = 'circle.png';
+    const options = [
+      [hand, circle],
+      [hand, hand],
+      [circle, circle],
+      [circle, hand]
+    ];
+
+    let gameInterval = null;
+    let gameRunning = false;
+    let swapCount = 0;
+
+    function randomSwitch() {
+      const choice = options[Math.floor(Math.random() * options.length)];
+      container.children[0].src = choice[0];
+      container.children[1].src = choice[1];
+
+      // show BANG
+      message.style.opacity = 1;
+      buzzAudio.currentTime = 0;
+      buzzAudio.play();
+
+      setTimeout(() => {
+        message.style.opacity = 0;
+      }, 500);
+
+      // increment swap counter
+      swapCount++;
+      counterDisplay.textContent = `בומבות: ${swapCount}`;
+    }
+
+    document.body.addEventListener('click', () => {
+      if (!gameRunning) {
+        // start game
+        gameRunning = true;
+        swapCount = 0;
+        counterDisplay.textContent = `בומבות: 0`;
+        const interval = parseInt(intervalInput.value) || 500;
+        gameInterval = setInterval(randomSwitch, interval);
+      } else {
+        // stop game
+        gameRunning = false;
+        clearInterval(gameInterval);
+        failAudio.currentTime = 0;
+        failAudio.play();
+      }
+    });
+  </script>
+
+</body>
+</html>
